@@ -129,6 +129,17 @@ def fpga_device(path):
                     infos[key] = read_line(os.path.join(dirpath, filename))
     return infos
 
+def get_labels_and_attrs():
+    return {"lables": ["CUSTOM_FPGA_INTEL",
+                       "CUSTOM_FPGA_INTEL_ARRIA10",
+                       "CUSTOM_FPGA_REGION_INTEL_UUID",
+                       "CUSTOM_FPGA_FUNCTION_INTEL_UUID",
+                       "CUSTOM_PROGRAMMABLE",
+                       "CUSTOM_FPGA_NETWORK"],
+             "attrs": {"model": "ARRIA10".lower(), "afu_id": "1"*32,
+                       "region_id": "2" * 32}
+            }
+
 
 def fpga_tree():
 
@@ -142,7 +153,9 @@ def fpga_tree():
         fpga = {"path": path, "function": func,
                 "devices": bdf, "assignable": True,
                 "parent_devices": pf_bdf,
-                "name": name}
+                "name": name,
+                "lables": get_labels_and_attrs()["lables"],
+                "attrs": get_labels_and_attrs()["attrs"]}
         d_info = fpga_device(dpath)
         fpga.update(d_info)
         return fpga

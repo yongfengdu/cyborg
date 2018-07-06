@@ -2048,3 +2048,15 @@ class SchedulerReportClient(object):
         # along to set_aggregates_for_provider()
         self.set_aggregates_for_provider(
             context, rp_uuid, new_aggs, use_cache=False)
+
+    def ensure_resource_classes(self, context, names):
+        """Calls the placement API to create a new resource class record.
+
+        :param context: The security context
+        :param name: Name of the resource class
+        :return: A dict of resource provider information object representing
+                 the newly-created resource provider.
+        :raises: exception.InvalidResourceClass if an attempt is made to create
+                 an invalid resource class.
+        """
+        self._ensure_resource_classes(context, names)

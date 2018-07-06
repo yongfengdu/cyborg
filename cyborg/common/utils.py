@@ -59,6 +59,10 @@ def get_ksa_adapter(service_type, ksa_auth=None, ksa_session=None,
     used, ksa auth and/or session options may also be required, or the relevant
     parameter supplied.
 
+    A raise_exc=False adapter is returned, meaning responses >=400 return the
+    Response object rather than raising an exception.  This behavior can be
+    overridden on a per-request basis by setting raise_exc=True.
+
     :param service_type: String name of the service type for which the Adapter
                          is to be constructed.
     :param ksa_auth: A keystoneauth1 auth plugin. If not specified, we attempt
@@ -106,3 +110,4 @@ def get_ksa_adapter(service_type, ksa_auth=None, ksa_session=None,
     return ks_loading.load_adapter_from_conf_options(
         CONF, confgrp, session=ksa_session, auth=ksa_auth,
         min_version=min_version, max_version=max_version)
+        # min_version=min_version, max_version=max_version, raise_exc=False)

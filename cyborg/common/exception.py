@@ -196,3 +196,12 @@ class AttributeInvalid(CyborgException):
 
 class AttributeAlreadyExists(CyborgException):
     _msg_fmt = _("Attribute with uuid %(uuid)s already exists.")
+
+
+class ServiceNotFound(NotFound):
+    _msg_fmt = _("Service %(service_id)s could not be found.")
+
+
+class ConfGroupForServiceTypeNotFound(ServiceNotFound):
+    _msg_fmt = _("No conf group name could be found for service type "
+                 "%(stype)s.")

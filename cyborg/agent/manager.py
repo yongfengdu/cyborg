@@ -13,6 +13,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import socket
 import oslo_messaging as messaging
 from oslo_service import periodic_task
 
@@ -20,12 +21,14 @@ from cyborg.accelerator.drivers.fpga.base import FPGADriver
 from cyborg.agent.resource_tracker import ResourceTracker
 from cyborg.conductor import rpcapi as cond_api
 from cyborg.conf import CONF
+from cyborg.services.client import report as placement_report_client
 
 
 class AgentManager(periodic_task.PeriodicTasks):
     """Cyborg Agent manager main class."""
 
     RPC_API_VERSION = '1.0'
+    p_client = placement_report_client.SchedulerReportClient()
     target = messaging.Target(version=RPC_API_VERSION)
 
     def __init__(self, topic, host=None):
@@ -34,7 +37,7 @@ class AgentManager(periodic_task.PeriodicTasks):
         self.host = host or CONF.host
         self.fpga_driver = FPGADriver()
         self.cond_api = cond_api.ConductorAPI()
-        self._rt = ResourceTracker(host, self.cond_api)
+        self._rt = ResourceTracker(host, self.cond_api, self.p_client)
 
     def periodic_tasks(self, context, raise_on_error=False):
         return self.run_periodic_tasks(context, raise_on_error=raise_on_error)
