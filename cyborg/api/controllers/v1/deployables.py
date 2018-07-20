@@ -15,8 +15,10 @@
 
 import pecan
 from pecan import rest
+import re
 from six.moves import http_client
 import wsme
+from pecan import expose as pexpose
 from wsme import types as wtypes
 
 from cyborg.api.controllers import base
@@ -27,6 +29,83 @@ from cyborg.api import expose
 from cyborg.common import exception
 from cyborg.common import policy
 from cyborg import objects
+
+
+_RC_FPGA = "CUSTOM_ACCELERATOR_FPGA"
+# Querystring-related constants
+_QS_RESOURCES = 'resources'
+_QS_REQUIRED = 'required' # only support required, should be traits?
+_QS_TRAITS= 'traits' # only support required, should be traits?
+_QS_MEMBER_OF = 'member_of'
+_QS_CYBORG = 'cyborg'
+_QS_KEY_PATTERN = re.compile(
+        r"^(%s)([1-9][0-9]*)?$" % '|'.join(
+        (_QS_RESOURCES, _QS_TRAITS, _QS_MEMBER_OF)))
+
+_QS_INTEL_REGION_PREFIX = "CUSTOM_FPGA_REGION_INTEL_"
+_QS_INTEL_FPGA_MODEL_PREFIX = "CUSTOM_FPGA_INTEL_"
+_QS_FPGA_FUNCTION_PREFIX = "CUSTOM_FPGA_"
+_QS_INTEL_FUNCTION_PREFIX = "CUSTOM_FPGA_FUNCTION_INTEL_"
+_QS_INTEL_FPGA= "CUSTOM_FPGA_INTEL"
+_QS_INTEL_FPGA_ARRIA_RPEFIX = "ARRIA"
+_QS_FPGA_PROGRAMMABLE = "CUSTOM_PROGRAMMABLE"
+_QS_INTEL_AFUID_PATTERN = re.compile(
+    r"^(%s)([a-fA-F0-9]{32,32})$" % _QS_INTEL_FUNCTION_PREFIX)
+_QS_INTEL_REGIONID_PATTERN = re.compile(
+    r"^(%s)([a-fA-F0-9]{32,32})$" % _QS_INTEL_REGION_PREFIX)
+_QS_INTEL_FPGA_ARRIA_PATTERN = re.compile(
+    r"^(%s)(%s[0-9]{2,2})$" %
+    (_QS_INTEL_FPGA_MODEL_PREFIX, _QS_INTEL_FPGA_ARRIA_RPEFIX))
+
+VONDER_MAP = {"intel": "0x8086"}
+
+
+def _get_request_spec(body):
+    request_spec = {}
+    for key, values in body.items():
+        match = _QS_KEY_PATTERN.match(key)
+        if match:
+            prefix, suffix = match.groups()
+            g_value = request_spec.setdefault(suffix,
+                 {_QS_RESOURCES: {_RC_FPGA: 0},
+                  _QS_TRAITS: {_QS_REQUIRED: []},
+                  _QS_MEMBER_OF: [], _QS_CYBORG: []})
+            if prefix == _QS_RESOURCES:
+                for v in values:
+                    rname, _, rnum = v.partition("=")
+                    rnmu = int(0 if rnum else rnum)
+                    if rname in g_value[prefix]:
+                        g_value[prefix][rname] = rnum
+            elif prefix == _QS_TRAITS:
+                for v in values:
+                    rname, _, rsetting = v.partition("=")
+                    if rsetting == _QS_REQUIRED:
+                        g_value[prefix][rsetting].append(rname)
+
+    return request_spec
+
+def gen_intel_fgpa_filter_from_traits(traits, host):
+    filtes = {"vendor": VONDER_MAP["intel"]}
+    if "CUSTOM_FPGA_INTEL" not in traits:
+        return {}
+    for tr in traits:
+        m =  _QS_INTEL_AFUID_PATTERN.match(tr)
+        if m:
+            _, afu_id = m.groups()
+            filtes["afu_id"] = afu_id
+            continue
+        m = _QS_INTEL_REGIONID_PATTERN.match(tr)
+        if m:
+            _, region_id = m.groups()
+            filtes["region_id"] = region_id
+            continue
+        m = _QS_INTEL_FPGA_ARRIA_PATTERN.match(tr)
+        if m:
+            _, model = m.groups()
+            filtes["model"] = model.lower()
+            continue
+    filtes["host"] = host
+    return filtes
 
 
 class Deployable(base.APIBase):
@@ -122,8 +201,110 @@ class DeployablePatchType(types.JsonPatchType):
         return defaults + ['/pcie_address', '/host', '/type']
 
 
+class Allocation(base.APIBase):
+    """API representation of a deployable Allocation.
+
+    This class enforces type checking and value constraints, and converts
+    between the internal object model and the API representation of
+    a deployable allocation.
+    """
+
+    uuid = types.uuid
+    """The UUID of the deployable"""
+
+    name = wtypes.text
+    """The name of the deployable"""
+
+    pcie_address = wtypes.text
+    """The pcie address of the deployable"""
+
+    host = wtypes.text
+    """The host on which the deployable is located"""
+
+    type = wtypes.text
+    """The type of the deployable"""
+
+    instance_uuid = types.uuid
+    """The UUID of the instance which deployable is assigned to"""
+
+    links = wsme.wsattr([link.Link], readonly=True)
+    """A list containing a self link"""
+
+    def __init__(self, **kwargs):
+        super(Allocation, self).__init__(**kwargs)
+        self.fields = []
+        for field in objects.Deployable.fields:
+            if hasattr(self, k) and getattr(self, k) != wsme.Unset:
+                self.fields.append(field)
+            setattr(self, field, kwargs.get(field, wtypes.Unset))
+
+    @classmethod
+    def convert_with_links(cls, obj_dep):
+        api_dep = cls(**obj_dep.as_dict())
+        url = pecan.request.public_url
+        api_dep.links = [
+            link.Link.make_link('self', url, 'deployables', api_dep.uuid),
+            link.Link.make_link('bookmark', url, 'deployables', api_dep.uuid,
+                                bookmark=True)
+            ]
+        return api_dep
+
+
+class AllocationCollection(base.APIBase):
+    """API representation of a collection of deployables."""
+
+    allocations = [Allocation]
+    """A list containing deployable objects"""
+
+    @classmethod
+    def convert_with_links(cls, obj_deps):
+        collection = cls()
+        collection.allocations = [Allocation.convert_with_links(obj_dep)
+                                  for obj_dep in obj_deps]
+        return collection
+
+class AllocationsController(rest.RestController):
+    """REST controller for Deployables Action."""
+
+    # agentapi = AgentAPI()
+
+    @expose.expose(DeployableCollection, body=types.jsontype)
+    def post(self, dep):
+        context = pecan.request.context
+        instance_uuid = dep.get("instance_uuid")
+        host = dep.get("host")
+        if not instance_uuid or not host:
+            # FIXME (Should raise exception)
+            return DeployableCollection.convert_with_links([])
+        # FIXME should use filter (such as host, and instance_uuid) for list.
+        obj_deps = []
+        specs = _get_request_spec(dep)
+
+        for _, spec in specs.items():
+            # only support "CUSTOM_ACCELERATOR_FPGA" this version
+            res_num = int(spec[_QS_RESOURCES][_RC_FPGA])
+            traits = spec[_QS_TRAITS][_QS_REQUIRED]
+            filters = {}
+            if res_num > 0:
+                filters = gen_intel_fgpa_filter_from_traits(traits, host)
+                filters["instance_uuid"] = None
+                deps = objects.Deployable.get_by_filter(
+                        pecan.request.context, filters)
+                # null_deps = [dep for dep in deps if dep.instance_uuid]
+                if len(deps) < res_num:
+                    return DeployableCollection.convert_with_links([])
+                obj_deps = obj_deps + deps[:res_num]
+
+        for obj in obj_deps:
+            obj["instance_uuid"] = instance_uuid
+            new_dep = pecan.request.conductor_api.deployable_update(context, obj)
+
+        return DeployableCollection.convert_with_links(obj_deps)
+
+
 class DeployablesController(rest.RestController):
     """REST controller for Deployables."""
+    allocations = AllocationsController()
 
     @policy.authorize_wsgi("cyborg:deployable", "create", False)
     @expose.expose(Deployable, body=types.jsontype,
