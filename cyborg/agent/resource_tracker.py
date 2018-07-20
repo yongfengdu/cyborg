@@ -19,11 +19,13 @@ conductor with useful information about availability through the accelerator
 model.
 """
 
+from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_messaging.rpc.client import RemoteError
 from oslo_utils import uuidutils
 import socket
 import uuid
+import yaml
 
 from cyborg.accelerator.drivers.fpga.base import FPGADriver
 from cyborg.agent import rc_fields
@@ -32,6 +34,8 @@ from cyborg import objects
 from cyborg.objects.physical_function import PhysicalFunction
 from cyborg.objects.virtual_function import VirtualFunction
 
+
+CONF = cfg.CONF
 
 LOG = logging.getLogger(__name__)
 
@@ -137,6 +141,12 @@ class ResourceTracker(object):
             new_dep = self.conductor_api.deployable_create(context, obj_dep)
             return new_dep
 
+        afu_map = {}
+        if CONF.find_file("afu_map.yaml"):
+            with open('/etc/cyborg/afu_map.yaml') as fp:
+                all_map = yaml.load(fp)
+                afu_map = all_map.get("FPGA", {})
+
         # NOTE(Shaohe Feng) need more agreement on how to keep consistency.
         fpgas = self._get_fpga_devices(context)
         for f in self._get_fpga_devices_from_all_vendors(context):
@@ -170,6 +180,11 @@ class ResourceTracker(object):
                 new_pf.save(context)
             for vf_obj in pf.virtual_function_list:
                 for k, v in f["attrs"].items():
+                    v_afu = afu_map.get(f["vendor_id"], {})
+                    afu_name = v_afu.get(v, "")
+                    if afu_name:
+                        print("Find AFU %s name: %s from config file"
+                              % (k, afu_name))
                     kwargs = {
                         "key": k,
                         "value": v,
