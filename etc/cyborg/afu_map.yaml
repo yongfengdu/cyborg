@@ -1,5 +1,6 @@
 FPGA:
   "INTEL_FUNCTION":
     "d8424dc4a4a3c413f89e433683f9040b": intel.bluebitstream.V1
-  "INTEL_MODEL"
+  "INTEL_MODEL":
     "0x09c4": ARRIA10
+    "0x09c5": ARRIA10

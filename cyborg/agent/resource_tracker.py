@@ -51,6 +51,8 @@ DEPLOYABLE_HOST_MAPS = {"assignable": "assignable",
                         "vendor": "vendor_id",
                         "name": "name"}
 
+VENDOR_MAP = {"0x8086", "INTEL"}
+
 RC_FPGA = rc_fields.ResourceClass.normalize_name(
     rc_fields.ResourceClass.FPGA)
 
@@ -148,8 +150,8 @@ class ResourceTracker(object):
                 afu_map = all_map.get("FPGA", {})
 
         # NOTE(Shaohe Feng) need more agreement on how to keep consistency.
-        fpgas = self._get_fpga_devices(context)
-        for f in self._get_fpga_devices_from_all_vendors(context):
+        fpgas = self._get_fpga_devices(context, afu_map)
+        for f in self._get_fpga_devices_from_all_vendors(context, afu_map):
             query = {"pcie_address": f["devices"],
                      "host": self.host, "name": f["name"]}
             pf_list = PhysicalFunction.get_by_filter(
@@ -180,21 +182,34 @@ class ResourceTracker(object):
                 new_pf.save(context)
             for vf_obj in pf.virtual_function_list:
                 for k, v in f["attrs"].items():
-                    v_afu = afu_map.get(f["vendor_id"], {})
-                    afu_name = v_afu.get(v, "")
-                    if afu_name:
-                        print("Find AFU %s name: %s from config file"
-                              % (k, afu_name))
-                    kwargs = {
-                        "key": k,
-                        "value": v,
-                        "deployable_id": vf_obj.id,
-                    }
-                    if not objects.Attribute.get_by_filter(context, kwargs):
-                        kwargs["uuid"] = uuidutils.generate_uuid()
-                        attr = objects.Attribute(context, **kwargs)
-                        attr.create(context)
-                        vf_obj.add_attribute(attr)
+                    if k == "model":
+                        v_model = afu_map.get("_".join(VENDOR_MAP[
+                                              f["vendor_id"]], "MODEL"), {})
+                        model_name = v_model.get(v, "")
+                        if model_name:
+                            print("Find FPGA model %s name: %s from config file"
+                              % (k, model_name))
+                        v = model_name
+                    attrs_kwargs = [(k, v)]
+                    if k == "afu_id":
+                        v_afu = afu_map.get("_".join(VENDOR_MAP[f["vendor_id"]],
+                                                     "FUNCTION"), {})
+                        afu_name = v_afu.get(v, "")
+                        if afu_name:
+                            print("Find AFU %s name: %s from config file"
+                                  % (k, afu_name))
+                    attrs_kwargs = [("afu_name", afu_name)]
+                    for key, value in attrs_kwargs:
+                        kwargs = {
+                            "key": key,
+                            "value": value,
+                            "deployable_id": vf_obj.id,
+                        }
+                        if not objects.Attribute.get_by_filter(context, kwargs):
+                            kwargs["uuid"] = uuidutils.generate_uuid()
+                            attr = objects.Attribute(context, **kwargs)
+                            attr.create(context)
+                            vf_obj.add_attribute(attr)
 
                 vf_obj.save(context)
 
@@ -287,7 +302,7 @@ class ResourceTracker(object):
         return result
 
 
-    def _get_fpga_devices(self, context):
+    def _get_fpga_devices(self, context, extra):
 
         def form_dict(devices, fpgas):
             for v in devices:
@@ -299,21 +314,21 @@ class ResourceTracker(object):
         vendors = self.fpga_driver.discover_vendors()
         for v in vendors:
             driver = self.fpga_driver.create(v)
-            devices = driver.discover()
+            devices = driver.discover(extra)
             for dev in devices:
                 total = len(dev["regions"]) if "regions" in dev else 1
                 self.provider_report(context, dev["name"], RESOURCES["fpga"],
-                                     dev["lables"], total, total)
-                del dev["lables"]
+                                     dev["labels"], total, total)
+                del dev["labels"]
             form_dict(devices, fpgas)
         return fpgas
 
-    def _get_fpga_devices_from_all_vendors(self, context):
+    def _get_fpga_devices_from_all_vendors(self, context, extra):
         fpgas = []
         vendors = self.fpga_driver.discover_vendors()
         for v in vendors:
             driver = self.fpga_driver.create(v)
-            devices = driver.discover()
+            devices = driver.discover(extra)
             fpgas.extend(devices)
         return fpgas
 

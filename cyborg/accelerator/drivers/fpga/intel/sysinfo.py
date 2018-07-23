@@ -160,7 +160,7 @@ def get_labels_and_attrs(name, product_id, extra={}):
     if model:
         labels.append("CUSTOM_FPGA_INTEL_MODEL_" + model)
         attrs["model"] = model.lower()
-    return {"lables": lables,
+    return {"labels": labels,
              "attrs": attrs}
 
 
@@ -181,7 +181,7 @@ def fpga_tree(extra):
         d_info = fpga_device(dpath)
         fpga.update(d_info)
         l_a = get_labels_and_attrs(fpga["name"], fpga["product_id"], extra)
-        fpga.updated({"lables": l_a["lables"], "attrs": l_a["attrs"]})
+        fpga.update({"labels": l_a["labels"], "attrs": l_a["attrs"]})
         return fpga
 
     devs = []
