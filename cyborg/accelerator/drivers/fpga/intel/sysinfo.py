@@ -129,19 +129,42 @@ def fpga_device(path):
                     infos[key] = read_line(os.path.join(dirpath, filename))
     return infos
 
-def get_labels_and_attrs():
-    return {"lables": ["CUSTOM_FPGA_INTEL",
-                       "CUSTOM_FPGA_INTEL_ARRIA10",
-                       "CUSTOM_FPGA_REGION_INTEL_UUID",
-                       "CUSTOM_FPGA_FUNCTION_INTEL_UUID",
-                       "CUSTOM_PROGRAMMABLE",
-                       "CUSTOM_FPGA_NETWORK"],
-             "attrs": {"model": "ARRIA10".lower(), "afu_id": "1"*32,
-                       "region_id": "2" * 32}
-            }
+
+def get_afu_ids(name):
+    ids = []
+    for path in glob.glob(os.path.join(
+            SYS_FPGA, name, "intel-fpga-port.*", "afu_id")):
+        with open(path) as f:
+            first_line = f.readline()
+            ids.append(first_line.split('\n', 1)[0])
+    return ids
 
 
-def fpga_tree():
+def get_labels_and_attrs(name, product_id, extra={}):
+    # "region_id" not support at present, "CUSTOM_FPGA_REGION_INTEL_UUID"
+    # "CUSTOM_PROGRAMMABLE" not support at present
+    labels = ["CUSTOM_FPGA_INTEL"]
+    attrs = {}
+    funcs = extra.get("INTEL_FUNCTION", {})
+    models = extra.get("INTEL_MODEL", {})
+    for i in get_afu_ids(name):
+        l = "CUSTOM_FPGA_INTEL_FUNCTION_" + i
+        labels.append(l)
+        # FIXME only support one id at present.
+        attrs["afu_id"] = l
+        fn = extra.get(i, "")
+        if fn:
+            labels.append("CUSTOM_FPGA_INTEL_FUNCTION_" + fn)
+            attrs["afu_name"] = fn
+    model = extra.get(product_id, "")
+    if model:
+        labels.append("CUSTOM_FPGA_INTEL_MODEL_" + model)
+        attrs["model"] = model.lower()
+    return {"lables": lables,
+             "attrs": attrs}
+
+
+def fpga_tree(extra):
 
     def gen_fpga_infos(path, vf=True):
         name = os.path.basename(path)
@@ -154,10 +177,11 @@ def fpga_tree():
                 "devices": bdf, "assignable": True,
                 "parent_devices": pf_bdf,
                 "name": name,
-                "lables": get_labels_and_attrs()["lables"],
-                "attrs": get_labels_and_attrs()["attrs"]}
+                }
         d_info = fpga_device(dpath)
         fpga.update(d_info)
+        l_a = get_labels_and_attrs(fpga["name"], fpga["product_id"], extra)
+        fpga.updated({"lables": l_a["lables"], "attrs": l_a["attrs"]})
         return fpga
 
     devs = []

@@ -39,6 +39,7 @@ CYBORG_CONF_DIR=${CYBORG_CONF_DIR:-/etc/cyborg}
 CYBORG_CONF_FILE=$CYBORG_CONF_DIR/cyborg.conf
 CYBORG_API_PASTE_INI=$CYBORG_CONF_DIR/api-paste.ini
 CYBORG_ROOTWRAP_CONF=$CYBORG_CONF_DIR/rootwrap.conf
+CYBORG_FPGA_INFO_MAP=$CYBORG_CONF_DIR/afu_map.yaml
 CYBORG_POLICY_JSON=$CYBORG_CONF_DIR/policy.json
 CYBORG_SERVICE_HOST=${CYBORG_SERVICE_HOST:-$SERVICE_HOST}
 CYBORG_SERVICE_PORT=${CYBORG_SERVICE_PORT:-6666}
@@ -162,11 +163,8 @@ function configure_auth_for {
     iniset $CYBORG_CONF_FILE $service_config_section cafile $SSL_BUNDLE_FILE
 }
 
-[placement]
-auth_section = keystone_authtoken
-# auth_section = ks_auth
 
-function configure_placement {
+function configure_cyborg_placement {
     # Use the provided config file path or default to $NOVA_CONF.
     local section=${1:-placement}
     local auth_section=${2:-keystone_authtoken}
@@ -195,9 +193,10 @@ function configure_cyborg_conductor {
 
     # this one is needed for lookup of Cyborg API endpoint via Keystone
     configure_auth_for service_catalog
-    configure_placement
+    configure_cyborg_placement
 
     sudo cp $CYBORG_DIR/etc/cyborg/rootwrap.conf $CYBORG_ROOTWRAP_CONF
+    sudo cp $CYBORG_DIR/etc/cyborg/afu_map.yaml  $CYBORG_FPGA_INFO_MAP
     sudo cp -r $CYBORG_DIR/etc/cyborg/rootwrap.d $CYBORG_CONF_DIR
     sudo cp -p $CYBORG_DIR/etc/cyborg/api-paste.ini $CYBORG_API_PASTE_INI
     local cyborg_rootwrap

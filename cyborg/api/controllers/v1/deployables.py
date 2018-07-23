@@ -42,15 +42,17 @@ _QS_KEY_PATTERN = re.compile(
         r"^(%s)([1-9][0-9]*)?$" % '|'.join(
         (_QS_RESOURCES, _QS_TRAITS, _QS_MEMBER_OF)))
 
-_QS_INTEL_REGION_PREFIX = "CUSTOM_FPGA_REGION_INTEL_"
+_QS_INTEL_REGION_PREFIX = "CUSTOM_FPGA_INTEL_REGION_"
 _QS_INTEL_FPGA_MODEL_PREFIX = "CUSTOM_FPGA_INTEL_"
 _QS_FPGA_FUNCTION_PREFIX = "CUSTOM_FPGA_"
-_QS_INTEL_FUNCTION_PREFIX = "CUSTOM_FPGA_FUNCTION_INTEL_"
+_QS_INTEL_FUNCTION_PREFIX = "CUSTOM_FPGA_INTEL_FUNCTION_"
 _QS_INTEL_FPGA= "CUSTOM_FPGA_INTEL"
 _QS_INTEL_FPGA_ARRIA_RPEFIX = "ARRIA"
 _QS_FPGA_PROGRAMMABLE = "CUSTOM_PROGRAMMABLE"
 _QS_INTEL_AFUID_PATTERN = re.compile(
     r"^(%s)([a-fA-F0-9]{32,32})$" % _QS_INTEL_FUNCTION_PREFIX)
+_QS_INTEL_AFUNAME_PATTERN = re.compile(
+    r"^(%s)(.{1,128})$" % _QS_INTEL_FUNCTION_PREFIX)
 _QS_INTEL_REGIONID_PATTERN = re.compile(
     r"^(%s)([a-fA-F0-9]{32,32})$" % _QS_INTEL_REGION_PREFIX)
 _QS_INTEL_FPGA_ARRIA_PATTERN = re.compile(
@@ -94,6 +96,12 @@ def gen_intel_fgpa_filter_from_traits(traits, host):
             _, afu_id = m.groups()
             filtes["afu_id"] = afu_id
             continue
+        mfm =  _QS_INTEL_AFUNAME_PATTERN.match(tr)
+        if mfm and not m:
+            _, afu_name = m.groups()
+            filtes["afu_name"] = afu_name
+            continue
+
         m = _QS_INTEL_REGIONID_PATTERN.match(tr)
         if m:
             _, region_id = m.groups()

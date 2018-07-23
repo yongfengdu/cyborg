@@ -369,8 +369,8 @@ class ResourceTracker(object):
             # Flush any changes.
             self.p_client.update_from_provider_tree(context, sub_pr)
             # traits = ["CUSTOM_FPGA_INTEL", "CUSTOM_FPGA_INTEL_ARRIA10",
-            #           "CUSTOM_FPGA_REGION_INTEL_UUID",
-            #           "CUSTOM_FPGA_FUNCTION_INTEL_UUID",
+            #           "CUSTOM_FPGA_INTEL_REGION_UUID",
+            #           "CUSTOM_FPGA_INTEL_FUNCTION_UUID",
             #           "CUSTOM_PROGRAMMABLE",
             #           "CUSTOM_FPGA_NETWORK"]
             self.p_client.set_traits_for_provider(context, sub_pr_uuid, traits)

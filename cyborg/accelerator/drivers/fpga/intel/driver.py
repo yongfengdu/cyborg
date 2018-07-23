@@ -34,8 +34,8 @@ class IntelFPGADriver(FPGADriver):
     def __init__(self, *args, **kwargs):
         pass
 
-    def discover(self):
-        return sysinfo.fpga_tree()
+    def discover(self, extra={}):
+        return sysinfo.fpga_tree(extra)
 
     def program(self, device_path, image):
         bdf = ""
