@@ -51,7 +51,7 @@ DEPLOYABLE_HOST_MAPS = {"assignable": "assignable",
                         "vendor": "vendor_id",
                         "name": "name"}
 
-VENDOR_MAP = {"0x8086", "INTEL"}
+VENDOR_MAP = {"0x8086": "INTEL"}
 
 RC_FPGA = rc_fields.ResourceClass.normalize_name(
     rc_fields.ResourceClass.FPGA)
@@ -183,22 +183,22 @@ class ResourceTracker(object):
             for vf_obj in pf.virtual_function_list:
                 for k, v in f["attrs"].items():
                     if k == "model":
-                        v_model = afu_map.get("_".join(VENDOR_MAP[
-                                              f["vendor_id"]], "MODEL"), {})
+                        v_model = afu_map.get("_".join((VENDOR_MAP[
+                                              f["vendor_id"]], "MODEL")), {})
                         model_name = v_model.get(v, "")
                         if model_name:
+                            v = model_name
                             print("Find FPGA model %s name: %s from config file"
                               % (k, model_name))
-                        v = model_name
                     attrs_kwargs = [(k, v)]
                     if k == "afu_id":
-                        v_afu = afu_map.get("_".join(VENDOR_MAP[f["vendor_id"]],
-                                                     "FUNCTION"), {})
+                        v_afu = afu_map.get("_".join((VENDOR_MAP[f["vendor_id"]],
+                                                     "FUNCTION")), {})
                         afu_name = v_afu.get(v, "")
                         if afu_name:
+                            attrs_kwargs = [("afu_name", afu_name)]
                             print("Find AFU %s name: %s from config file"
                                   % (k, afu_name))
-                    attrs_kwargs = [("afu_name", afu_name)]
                     for key, value in attrs_kwargs:
                         kwargs = {
                             "key": key,
@@ -316,7 +316,13 @@ class ResourceTracker(object):
             driver = self.fpga_driver.create(v)
             devices = driver.discover(extra)
             for dev in devices:
-                total = len(dev["regions"]) if "regions" in dev else 1
+                total = 1
+                if "regions" in dev:
+                    for sub_dev in dev["regions"]:
+                        self.provider_report(context, sub_dev["name"], RESOURCES["fpga"],
+                                             sub_dev["labels"], total, total)
+                    total = len(dev["regions"])
+                    del sub_dev["labels"]
                 self.provider_report(context, dev["name"], RESOURCES["fpga"],
                                      dev["labels"], total, total)
                 del dev["labels"]

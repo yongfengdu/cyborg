@@ -148,18 +148,18 @@ def get_labels_and_attrs(name, product_id, extra={}):
     funcs = extra.get("INTEL_FUNCTION", {})
     models = extra.get("INTEL_MODEL", {})
     for i in get_afu_ids(name):
-        l = "CUSTOM_FPGA_INTEL_FUNCTION_" + i
+        l = "CUSTOM_FPGA_INTEL_FUNCTION_" + i.upper()
         labels.append(l)
         # FIXME only support one id at present.
-        attrs["afu_id"] = l
-        fn = extra.get(i, "")
+        attrs["afu_id"] = i.upper()
+        fn = funcs.get(i, "")
         if fn:
-            labels.append("CUSTOM_FPGA_INTEL_FUNCTION_" + fn)
-            attrs["afu_name"] = fn
-    model = extra.get(product_id, "")
+            labels.append("CUSTOM_FPGA_INTEL_FUNCTION_" + fn.upper())
+            attrs["afu_name"] = fn.upper()
+    model = models.get(product_id, "")
     if model:
-        labels.append("CUSTOM_FPGA_INTEL_MODEL_" + model)
-        attrs["model"] = model.lower()
+        labels.append("CUSTOM_FPGA_INTEL_MODEL_" + model.upper())
+        attrs["model"] = model.upper()
     return {"labels": labels,
              "attrs": attrs}
 
