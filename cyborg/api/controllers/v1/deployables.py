@@ -96,12 +96,11 @@ def gen_intel_fgpa_filter_from_traits(traits, host):
             _, afu_id = m.groups()
             filtes["afu_id"] = afu_id
             continue
-        mfm =  _QS_INTEL_AFUNAME_PATTERN.match(tr)
-        if mfm and not m:
+        m =  _QS_INTEL_AFUNAME_PATTERN.match(tr)
+        if m:
             _, afu_name = m.groups()
             filtes["afu_name"] = afu_name
             continue
-
         m = _QS_INTEL_REGIONID_PATTERN.match(tr)
         if m:
             _, region_id = m.groups()

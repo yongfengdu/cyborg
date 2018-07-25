@@ -180,8 +180,10 @@ class ResourceTracker(object):
                     new_vf.save(context)
                     pf.add_vf(new_vf)
                 new_pf.save(context)
+            add_idx_map = dict([(v["devices"], i) for i, v in enumerate(f["regions"])])
             for vf_obj in pf.virtual_function_list:
-                for k, v in f["attrs"].items():
+                idx = add_idx_map[vf_obj.pcie_address]
+                for k, v in f["regions"][idx]["attrs"].items():
                     if k == "model":
                         v_model = afu_map.get("_".join((VENDOR_MAP[
                                               f["vendor_id"]], "MODEL")), {})
