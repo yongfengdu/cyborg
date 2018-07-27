@@ -180,38 +180,50 @@ class ResourceTracker(object):
                     new_vf.save(context)
                     pf.add_vf(new_vf)
                 new_pf.save(context)
-            add_idx_map = dict([(v["devices"], i) for i, v in enumerate(f["regions"])])
+
+            add_idx_map = dict([(v["devices"], i)
+                                for i, v in enumerate(f["regions"])])
+            v_model = afu_map.get("_".join((VENDOR_MAP[
+                                  f["vendor_id"]], "MODEL")), {})
+            v_afu = afu_map.get("_".join((VENDOR_MAP[f["vendor_id"]],
+                                         "FUNCTION")), {})
             for vf_obj in pf.virtual_function_list:
                 idx = add_idx_map[vf_obj.pcie_address]
-                for k, v in f["regions"][idx]["attrs"].items():
-                    if k == "model":
-                        v_model = afu_map.get("_".join((VENDOR_MAP[
-                                              f["vendor_id"]], "MODEL")), {})
-                        model_name = v_model.get(v, "")
-                        if model_name:
-                            v = model_name
-                            print("Find FPGA model %s name: %s from config file"
-                              % (k, model_name))
-                    attrs_kwargs = [(k, v)]
-                    if k == "afu_id":
-                        v_afu = afu_map.get("_".join((VENDOR_MAP[f["vendor_id"]],
-                                                     "FUNCTION")), {})
-                        afu_name = v_afu.get(v, "")
-                        if afu_name:
-                            attrs_kwargs = [("afu_name", afu_name)]
-                            print("Find AFU %s name: %s from config file"
-                                  % (k, afu_name))
-                    for key, value in attrs_kwargs:
-                        kwargs = {
-                            "key": key,
-                            "value": value,
-                            "deployable_id": vf_obj.id,
-                        }
-                        if not objects.Attribute.get_by_filter(context, kwargs):
-                            kwargs["uuid"] = uuidutils.generate_uuid()
-                            attr = objects.Attribute(context, **kwargs)
-                            attr.create(context)
-                            vf_obj.add_attribute(attr)
+                vf_attrs = objects.Attribute.get_by_filter(
+                    context, {"deployable_id": vf_obj.id})
+                dev_attrs = f["regions"][idx]["attrs"]
+                k = "model"
+                v = dev_attrs.get(k)
+                model_name = v_model.get(v, "")
+                if v and model_name:
+                    dev_attrs[k] = model_name.upper()
+                    print("Find FPGA model %s name: %s from config file"
+                      % (k, model_name))
+                k = "afu_id"
+                v = dev_attrs.get(k)
+                afu_name = v_afu.get(v, "")
+                new_k = "afu_name"
+                if v and afu_name:
+                    dev_attrs[new_k] = afu_name.upper()
+                    print("Find AFU %s name: %s from config file"
+                          % (new_k, afu_name))
+                for k, v in dev_attrs.items():
+                    kwargs = {
+                        "key": k,
+                        "deployable_id": vf_obj.id,
+                    }
+                    # A bug in deployable attr_list
+                    attrs = objects.Attribute.get_by_filter(context, kwargs)
+                    attr = attrs[0] if attrs else None
+                    if not attr:
+                        kwargs["uuid"] = uuidutils.generate_uuid()
+                        kwargs["value"] = v
+                        attr = objects.Attribute(context, **kwargs)
+                        attr.create(context)
+                    attr.value = v
+                    attr.save(context)
+                    vf_obj.add_attribute(attr)
+                # support attr.destroy(context)
 
                 vf_obj.save(context)
 
