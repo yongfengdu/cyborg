@@ -210,6 +210,12 @@ class Connection(api.Connection):
             models.Deployable).filter_by(host=host)
         return query.all()
 
+    def deployable_get_by_instance(self, context, instance_uuid):
+        query = model_query(
+            context,
+            models.Deployable).filter_by(instance_uuid=instance_uuid)
+        return query.all()
+
     def deployable_list(self, context):
         query = model_query(context, models.Deployable)
         return query.all()

@@ -341,11 +341,11 @@ class DeployablesController(rest.RestController):
         return Deployable.convert_with_links(obj_dep)
 
     @policy.authorize_wsgi("cyborg:deployable", "get_all")
-    @expose.expose(DeployableCollection, int, types.uuid, wtypes.text,
-                   wtypes.text, types.boolean)
-    def get_all(self):
+    @expose.expose(DeployableCollection, types.uuid)
+    def get_all(self, instance_uuid=None):
         """Retrieve a list of deployables."""
-        obj_deps = objects.Deployable.list(pecan.request.context)
+        obj_deps = objects.Deployable.list(pecan.request.context,
+					   instance_uuid=instance_uuid)
         return DeployableCollection.convert_with_links(obj_deps)
 
     @policy.authorize_wsgi("cyborg:deployable", "update")

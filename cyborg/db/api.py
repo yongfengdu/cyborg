@@ -96,6 +96,10 @@ class Connection(object):
         """Get requested deployable by filters."""
 
     @abc.abstractmethod
+    def deployable_get_by_instance(self, context, instance_uuid):
+	"""Get requested deployable by instance."""
+
+    @abc.abstractmethod
     def deployable_get_by_filters_with_attributes(self, context,
                                                   filters):
         """Get requested deployable by filters with attributes."""
