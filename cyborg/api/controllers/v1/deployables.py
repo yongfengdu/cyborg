@@ -295,6 +295,8 @@ class AllocationsController(rest.RestController):
             if res_num > 0:
                 filters = gen_intel_fgpa_filter_from_traits(traits, host)
                 filters["instance_uuid"] = None
+                filters["assignable"] = True
+                # filters["availability"] = "released" # Hard Code
                 deps = objects.Deployable.get_by_filter(
                         pecan.request.context, filters)
                 # null_deps = [dep for dep in deps if dep.instance_uuid]
@@ -304,6 +306,7 @@ class AllocationsController(rest.RestController):
 
         for obj in obj_deps:
             obj["instance_uuid"] = instance_uuid
+            obj["availability"] = "claimed"  # Hard Code
             new_dep = pecan.request.conductor_api.deployable_update(context, obj)
 
         return DeployableCollection.convert_with_links(obj_deps)
@@ -376,6 +379,8 @@ class DeployablesController(rest.RestController):
                 patch_val = None
             if obj_dep[field] != patch_val:
                 obj_dep[field] = patch_val
+            if field == "instance_uuid" and patch_val == None:
+                obj_dep["availability"] = "released" # Hard Code
 
         new_dep = pecan.request.conductor_api.deployable_update(context,
                                                                 obj_dep)

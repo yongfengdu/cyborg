@@ -177,18 +177,32 @@ class ResourceTracker(object):
                     dep = self._gen_deployable_from_host_dev(v, acc.id, pf.uuid)
                     new_vf = VirtualFunction(context, **dep)
                     new_vf.create(context)
+                    new_vf.availability = "released" # Hard Code
                     new_vf.save(context)
                     pf.add_vf(new_vf)
-                new_pf.save(context)
+                pf.save(context)
 
             add_idx_map = dict([(v["devices"], i)
-                                for i, v in enumerate(f["regions"])])
+                                for i, v in enumerate(f.get("regions", []))])
             v_model = afu_map.get("_".join((VENDOR_MAP[
                                   f["vendor_id"]], "MODEL")), {})
             v_afu = afu_map.get("_".join((VENDOR_MAP[f["vendor_id"]],
                                          "FUNCTION")), {})
             for vf_obj in pf.virtual_function_list:
-                idx = add_idx_map[vf_obj.pcie_address]
+                idx = add_idx_map.get(vf_obj.pcie_address)
+                if idx is None:
+                    name = "@".join((vf_obj.name.encode('ascii','ignore'),
+                            self.host))
+                    pr_uuid = str(uuid.uuid3(uuid.NAMESPACE_DNS, name))
+                    try:
+                        print "error"
+                        self.p_client._delete_provider(pr_uuid)
+                    except Exception as e:
+                        LOG.error(e)
+                    vf_obj.availability = "disappear" # Hard Code
+                    vf_obj.assignable = False
+                    vf_obj.save(context)
+                    continue
                 vf_attrs = objects.Attribute.get_by_filter(
                     context, {"deployable_id": vf_obj.id})
                 dev_attrs = f["regions"][idx]["attrs"]
@@ -330,15 +344,27 @@ class ResourceTracker(object):
             driver = self.fpga_driver.create(v)
             devices = driver.discover(extra)
             for dev in devices:
-                total = 1
                 if "regions" in dev:
                     for sub_dev in dev["regions"]:
-                        self.provider_report(context, sub_dev["name"], RESOURCES["fpga"],
-                                             sub_dev["labels"], total, total)
-                    total = len(dev["regions"])
+                        total = 1 if sub_dev["assignable"] else 0
+                        if total:
+                            self.provider_report(
+                                context, sub_dev["name"], RESOURCES["fpga"],
+                                sub_dev["labels"], total, total)
                     del sub_dev["labels"]
-                self.provider_report(context, dev["name"], RESOURCES["fpga"],
-                                     dev["labels"], total, total)
+                total = 1 if dev["assignable"] else 0
+                if total:
+                    self.provider_report(
+                        context, dev["name"], RESOURCES["fpga"],
+                        dev["labels"], total, total)
+                else:
+                    name = "@".join((dev["name"], self.host))
+                    pr_uuid = str(uuid.uuid3(uuid.NAMESPACE_DNS, name))
+                    try:
+                        self.p_client._delete_provider(pr_uuid)
+                    except Exception as e:
+                        LOG.error(e)
+
                 del dev["labels"]
             form_dict(devices, fpgas)
         return fpgas
